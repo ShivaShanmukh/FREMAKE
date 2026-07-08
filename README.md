@@ -6,10 +6,13 @@ debit, surgical edits over whole-file reasoning.
 
 ## Status
 
-**Phase 0 — Scaffolding & Environment.** The app boots, shows a placeholder
-home page, has a Supabase health check and a Clerk sign-in stub. No feature
-code yet. See the phased execution prompt in the parent folder for the full
-build plan.
+**Phase 1 — Prompt → Wireframe pipeline.** `/studio` takes a 3–5 sentence
+product description and generates personas, an information architecture, and
+5 low-fidelity wireframe screens rendered on a Konva canvas. Generation uses
+the Claude API (`claude-opus-4-8`) with structured outputs; the model returns
+semantic elements only and layout is computed deterministically in code.
+Phase 0 (scaffold, health check, Clerk stub, CI) is complete. See the phased
+execution prompt in the parent folder for the full build plan.
 
 ## Stack
 

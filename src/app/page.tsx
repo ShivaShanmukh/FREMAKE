@@ -10,6 +10,12 @@ export default function Home() {
       </p>
       <div className="flex gap-4 text-sm">
         <Link
+          href="/studio"
+          className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-500"
+        >
+          Open Studio
+        </Link>
+        <Link
           href="/sign-in"
           className="rounded-md bg-neutral-900 px-4 py-2 text-white hover:bg-neutral-700 dark:bg-white dark:text-black dark:hover:bg-neutral-300"
         >
