@@ -1,162 +1,59 @@
 "use client";
 
-import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { Group, Layer, Stage } from "react-konva";
 import type { Screen } from "@/lib/generation/schema";
-import {
-  FRAME_HEIGHT,
-  FRAME_WIDTH,
-  layoutScreen,
-  type LayoutBox,
-} from "@/lib/wireframe/layout";
+import type { Selection } from "@/lib/edit/types";
+import { FRAME_HEIGHT, FRAME_WIDTH } from "@/lib/wireframe/layout";
+import { ScreenFrame, TITLE_HEIGHT } from "./wireframe/ScreenFrame";
 
 const SCREEN_GAP = 24;
-const TITLE_HEIGHT = 28;
 
-function BoxShape({ box }: { box: LayoutBox }) {
-  switch (box.kind) {
-    case "image":
-      return (
-        <Group>
-          <Rect
-            x={box.x}
-            y={box.y}
-            width={box.width}
-            height={box.height}
-            stroke="#94a3b8"
-            strokeWidth={1}
-            fill="#f1f5f9"
-          />
-          {/* Classic image placeholder cross */}
-          <Line
-            points={[box.x, box.y, box.x + box.width, box.y + box.height]}
-            stroke="#cbd5e1"
-            strokeWidth={1}
-          />
-          <Line
-            points={[box.x + box.width, box.y, box.x, box.y + box.height]}
-            stroke="#cbd5e1"
-            strokeWidth={1}
-          />
-        </Group>
-      );
-    case "button":
-      return (
-        <Group>
-          <Rect
-            x={box.x}
-            y={box.y}
-            width={box.width}
-            height={box.height}
-            cornerRadius={8}
-            fill="#334155"
-          />
-          <Text
-            x={box.x}
-            y={box.y + box.height / 2 - 6}
-            width={box.width}
-            align="center"
-            text={box.label}
-            fontSize={11}
-            fill="#ffffff"
-          />
-        </Group>
-      );
-    case "list":
-      return (
-        <Group>
-          {[0, 1, 2].map((row) => (
-            <Rect
-              key={row}
-              x={box.x}
-              y={box.y + row * (box.height / 3)}
-              width={box.width}
-              height={box.height / 3 - 6}
-              stroke="#94a3b8"
-              strokeWidth={1}
-              cornerRadius={4}
-              fill="#ffffff"
-            />
-          ))}
-          <Text
-            x={box.x + 8}
-            y={box.y + 8}
-            width={box.width - 16}
-            text={box.label}
-            fontSize={10}
-            fill="#64748b"
-          />
-        </Group>
-      );
-    default: {
-      const isHeader = box.kind === "header" || box.kind === "nav";
-      return (
-        <Group>
-          <Rect
-            x={box.x}
-            y={box.y}
-            width={box.width}
-            height={box.height}
-            stroke="#94a3b8"
-            strokeWidth={1}
-            cornerRadius={box.kind === "input" ? 6 : 0}
-            fill={isHeader ? "#e2e8f0" : "#ffffff"}
-          />
-          <Text
-            x={box.x + 8}
-            y={box.y + box.height / 2 - 6}
-            width={box.width - 16}
-            align={isHeader ? "center" : "left"}
-            text={box.label}
-            fontSize={11}
-            fill="#334155"
-          />
-        </Group>
-      );
-    }
-  }
-}
+type WireframeCanvasProps = {
+  screens: Screen[];
+  selection?: Selection | null;
+  onSelect?: (selection: Selection | null) => void;
+};
 
-export default function WireframeCanvas({ screens }: { screens: Screen[] }) {
+export default function WireframeCanvas({
+  screens,
+  selection = null,
+  onSelect,
+}: WireframeCanvasProps) {
   const stageWidth = screens.length * (FRAME_WIDTH + SCREEN_GAP);
   const stageHeight = FRAME_HEIGHT + TITLE_HEIGHT;
 
   return (
-    <div className="overflow-x-auto">
-      <Stage width={stageWidth} height={stageHeight}>
+    <div className="overflow-x-auto" data-testid="wireframe-canvas">
+      <Stage
+        width={stageWidth}
+        height={stageHeight}
+        onClick={(e) => {
+          // A click that reached the stage hit no screen — clear selection.
+          if (onSelect && e.target === e.target.getStage()) {
+            onSelect(null);
+          }
+        }}
+      >
         <Layer>
-          {screens.map((screen, i) => {
-            const offsetX = i * (FRAME_WIDTH + SCREEN_GAP);
-            const layout = layoutScreen(screen);
-            return (
-              <Group key={screen.name + i} x={offsetX} y={0}>
-                <Text
-                  x={0}
-                  y={0}
-                  width={FRAME_WIDTH}
-                  align="center"
-                  text={layout.name}
-                  fontSize={12}
-                  fontStyle="bold"
-                  fill="#0f172a"
-                />
-                <Group y={TITLE_HEIGHT}>
-                  <Rect
-                    x={0}
-                    y={0}
-                    width={FRAME_WIDTH}
-                    height={FRAME_HEIGHT}
-                    stroke="#0f172a"
-                    strokeWidth={1.5}
-                    cornerRadius={16}
-                    fill="#fafafa"
-                  />
-                  {layout.boxes.map((box, j) => (
-                    <BoxShape key={j} box={box} />
-                  ))}
-                </Group>
-              </Group>
-            );
-          })}
+          {screens.map((screen, i) => (
+            <Group key={screen.name + i} x={i * (FRAME_WIDTH + SCREEN_GAP)} y={0}>
+              <ScreenFrame
+                screen={screen}
+                screenSelected={selection?.screenIndex === i && selection.elementIndex === null}
+                selectedElementIndex={
+                  selection?.screenIndex === i ? selection.elementIndex : null
+                }
+                onSelectScreen={
+                  onSelect ? () => onSelect({ screenIndex: i, elementIndex: null }) : undefined
+                }
+                onSelectElement={
+                  onSelect
+                    ? (elementIndex) => onSelect({ screenIndex: i, elementIndex })
+                    : undefined
+                }
+              />
+            </Group>
+          ))}
         </Layer>
       </Stage>
     </div>

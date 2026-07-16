@@ -3,12 +3,17 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import type { GenerationResult } from "@/lib/generation/schema";
+import type { Selection } from "@/lib/edit/types";
 
 // Konva touches `window` — must not be server-rendered.
 const WireframeCanvas = dynamic(() => import("@/components/WireframeCanvas"), {
   ssr: false,
   loading: () => <p className="text-sm text-neutral-400">Loading canvas…</p>,
 });
+const EditFlow = dynamic(
+  () => import("@/components/EditFlow").then((m) => m.EditFlow),
+  { ssr: false },
+);
 
 const SAMPLE =
   "An app for amateur cricket teams to track match scores ball by ball, see player statistics over a season, and share match summaries with their club. Captains create matches, scorers record each ball, and players view their own performance trends.";
@@ -18,11 +23,13 @@ export default function StudioPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
 
   async function generate() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelection(null);
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -125,8 +132,29 @@ export default function StudioPage() {
 
           <section>
             <h2 className="mb-2 text-lg font-semibold">Wireframes</h2>
-            <WireframeCanvas screens={result.screens} />
+            <p className="mb-2 text-sm text-neutral-500">
+              Click a screen frame or a single element to target an edit.
+            </p>
+            <WireframeCanvas
+              screens={result.screens}
+              selection={selection}
+              onSelect={setSelection}
+            />
           </section>
+
+          {selection && (
+            <EditFlow
+              // Remount on selection change so a stale candidate/diff never
+              // survives a retarget.
+              key={`${selection.screenIndex}:${selection.elementIndex ?? "screen"}`}
+              result={result}
+              selection={selection}
+              onApply={(next) => {
+                setResult(next);
+                setSelection(null);
+              }}
+            />
+          )}
         </div>
       )}
     </main>
