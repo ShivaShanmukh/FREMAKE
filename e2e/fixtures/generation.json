@@ -1,0 +1,245 @@
+{
+  "result": {
+    "personas": [
+      {
+        "name": "Maria Alvarez",
+        "role": "Working mother of two young kids",
+        "goal": "Build a consistent morning routine for herself and her family without extra stress",
+        "painPoint": "She forgets small habits during chaotic mornings and feels guilty when she slips up"
+      },
+      {
+        "name": "James Carter",
+        "role": "Stay-at-home dad juggling household tasks",
+        "goal": "Track daily habits like reading with his kids and staying active between chores",
+        "painPoint": "Existing apps feel demanding and shame him for breaking streaks"
+      },
+      {
+        "name": "Priya Nair",
+        "role": "Single parent working full-time",
+        "goal": "Stay on top of health and self-care habits with minimal daily effort",
+        "painPoint": "She has almost no free time to configure complicated tracking tools"
+      }
+    ],
+    "informationArchitecture": [
+      {
+        "section": "Onboarding",
+        "items": [
+          "Welcome intro",
+          "Choose starter habits",
+          "Set reminder times",
+          "Notification permission"
+        ]
+      },
+      {
+        "section": "Home",
+        "items": [
+          "Today's habits",
+          "Streak overview",
+          "Quick check-in",
+          "Gentle reminder banner"
+        ]
+      },
+      {
+        "section": "Habits",
+        "items": [
+          "Habit list",
+          "Habit detail",
+          "Progress history",
+          "Edit or archive habit"
+        ]
+      },
+      {
+        "section": "Create",
+        "items": [
+          "New habit name",
+          "Frequency",
+          "Reminder schedule",
+          "Goal note"
+        ]
+      },
+      {
+        "section": "Profile",
+        "items": [
+          "Account info",
+          "Reminder preferences",
+          "Streak stats",
+          "Family sharing",
+          "Settings"
+        ]
+      }
+    ],
+    "screens": [
+      {
+        "name": "Onboarding",
+        "purpose": "Introduce the app and let parents quickly pick starter habits and reminder times",
+        "elements": [
+          {
+            "type": "header",
+            "label": "Welcome to GentleHabits"
+          },
+          {
+            "type": "image",
+            "label": "Parent and child routine illustration"
+          },
+          {
+            "type": "text",
+            "label": "Build small habits that fit your busy family life"
+          },
+          {
+            "type": "list",
+            "label": "Suggested starter habits (Drink water, Read with kids, Stretch)"
+          },
+          {
+            "type": "input",
+            "label": "Preferred reminder time"
+          },
+          {
+            "type": "button",
+            "label": "Enable gentle reminders"
+          },
+          {
+            "type": "button",
+            "label": "Start tracking"
+          }
+        ]
+      },
+      {
+        "name": "Home",
+        "purpose": "Show today's habits, streaks, and let parents check in with one tap",
+        "elements": [
+          {
+            "type": "header",
+            "label": "Today"
+          },
+          {
+            "type": "text",
+            "label": "You're on a 5-day streak, keep it gentle"
+          },
+          {
+            "type": "text",
+            "label": "Morning reminder: Read with the kids"
+          },
+          {
+            "type": "list",
+            "label": "Today's habits with check-off toggles"
+          },
+          {
+            "type": "button",
+            "label": "Mark all done"
+          },
+          {
+            "type": "nav",
+            "label": "Home | Habits | Add | Profile"
+          }
+        ]
+      },
+      {
+        "name": "Habit Detail",
+        "purpose": "Let parents review progress and history for a single habit",
+        "elements": [
+          {
+            "type": "header",
+            "label": "Read with kids"
+          },
+          {
+            "type": "text",
+            "label": "Current streak: 5 days"
+          },
+          {
+            "type": "image",
+            "label": "Weekly progress calendar"
+          },
+          {
+            "type": "list",
+            "label": "Recent check-in history"
+          },
+          {
+            "type": "button",
+            "label": "Mark today complete"
+          },
+          {
+            "type": "button",
+            "label": "Edit habit"
+          },
+          {
+            "type": "nav",
+            "label": "Home | Habits | Add | Profile"
+          }
+        ]
+      },
+      {
+        "name": "Create Habit",
+        "purpose": "Allow parents to add a new habit with a schedule and gentle reminder",
+        "elements": [
+          {
+            "type": "header",
+            "label": "New Habit"
+          },
+          {
+            "type": "input",
+            "label": "Habit name"
+          },
+          {
+            "type": "list",
+            "label": "Frequency (Daily, Weekdays, Custom)"
+          },
+          {
+            "type": "input",
+            "label": "Reminder time"
+          },
+          {
+            "type": "input",
+            "label": "Why this matters to you"
+          },
+          {
+            "type": "button",
+            "label": "Save habit"
+          }
+        ]
+      },
+      {
+        "name": "Profile & Settings",
+        "purpose": "Manage account, reminder preferences, and view overall streak stats",
+        "elements": [
+          {
+            "type": "header",
+            "label": "Profile"
+          },
+          {
+            "type": "image",
+            "label": "Parent avatar"
+          },
+          {
+            "type": "text",
+            "label": "Longest streak: 21 days"
+          },
+          {
+            "type": "list",
+            "label": "Reminder preferences"
+          },
+          {
+            "type": "button",
+            "label": "Invite family member"
+          },
+          {
+            "type": "button",
+            "label": "Notification settings"
+          },
+          {
+            "type": "button",
+            "label": "Log out"
+          },
+          {
+            "type": "nav",
+            "label": "Home | Habits | Add | Profile"
+          }
+        ]
+      }
+    ]
+  },
+  "promptVersion": "v1",
+  "usage": {
+    "inputTokens": 1541,
+    "outputTokens": 1397
+  }
+}
