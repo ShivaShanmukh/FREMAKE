@@ -3,12 +3,17 @@
 import { useState } from "react";
 import type { GenerationResult, Screen, WireframeElement } from "@/lib/generation/schema";
 import { applyEdit } from "@/lib/edit/apply";
+import { diffScreens, isEmptyDiff } from "@/lib/edit/diff";
 import { selectTarget, type Selection } from "@/lib/edit/types";
-import { DiffView } from "./wireframe/DiffView";
+import { editCost } from "@/lib/credits/costs";
+import { DiffDecision } from "./wireframe/DiffDecision";
 
 type EditFlowProps = {
   result: GenerationResult;
   selection: Selection;
+  balance: number;
+  /** Called with the edit's cost at the moment of approval — never before. */
+  onCharge: (cost: number) => void;
   /** Approval hands over the exact candidate the diff displayed. */
   onApply: (next: GenerationResult) => void;
 };
@@ -18,7 +23,7 @@ type EditResponse = {
   error?: string;
 };
 
-export function EditFlow({ result, selection, onApply }: EditFlowProps) {
+export function EditFlow({ result, selection, balance, onCharge, onApply }: EditFlowProps) {
   const [instruction, setInstruction] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +38,12 @@ export function EditFlow({ result, selection, onApply }: EditFlowProps) {
     target.kind === "element"
       ? `${target.element.type} “${target.element.label}” on “${target.screenName}”`
       : `screen “${target.screen.name}”`;
+
+  const cost = editCost(target.kind);
+  const affordable = balance >= cost;
+  const before = result.screens[selection.screenIndex];
+  const after = candidate?.screens[selection.screenIndex];
+  const emptyDiff = after ? isEmptyDiff(diffScreens(before, after)) : false;
 
   async function propose(): Promise<void> {
     setLoading(true);
@@ -67,6 +78,15 @@ export function EditFlow({ result, selection, onApply }: EditFlowProps) {
     <section className="rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
       <h2 className="text-lg font-semibold">Targeted edit</h2>
       <p className="mt-1 text-sm text-neutral-500">Editing {targetLabel}.</p>
+      <p className="mt-1 text-sm text-neutral-500" data-testid="edit-cost">
+        This edit costs {cost} credit{cost === 1 ? "" : "s"} — charged only when
+        you approve the diff.
+      </p>
+      {!affordable && (
+        <p className="mt-2 text-sm text-red-700 dark:text-red-300" data-testid="insufficient-credits">
+          Not enough credits (balance {balance}, needed {cost}).
+        </p>
+      )}
 
       <div className="mt-3 flex items-start gap-3">
         <input
@@ -78,7 +98,7 @@ export function EditFlow({ result, selection, onApply }: EditFlowProps) {
         />
         <button
           onClick={propose}
-          disabled={loading || instruction.trim().length < 4}
+          disabled={loading || !affordable || instruction.trim().length < 4}
           className="shrink-0 rounded-md bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black"
         >
           {loading ? "Proposing…" : "Propose edit"}
@@ -91,27 +111,20 @@ export function EditFlow({ result, selection, onApply }: EditFlowProps) {
         </div>
       )}
 
-      {candidate && (
-        <div className="mt-4 flex flex-col gap-4">
-          <DiffView
-            before={result.screens[selection.screenIndex]}
-            after={candidate.screens[selection.screenIndex]}
-          />
-          <div className="flex gap-3">
-            <button
-              onClick={() => onApply(candidate)}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm text-white"
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => setCandidate(null)}
-              className="rounded-md border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700"
-            >
-              Reject
-            </button>
-          </div>
-        </div>
+      {candidate && after && (
+        <DiffDecision
+          before={before}
+          after={after}
+          cost={cost}
+          emptyDiff={emptyDiff}
+          onApprove={() => {
+            // Charge and commit together: the debit is exactly the cost
+            // quoted upfront, and only ever fires on approval.
+            onCharge(cost);
+            onApply(candidate);
+          }}
+          onDismiss={() => setCandidate(null)}
+        />
       )}
     </section>
   );

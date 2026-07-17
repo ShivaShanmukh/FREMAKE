@@ -4,9 +4,6 @@ import type { Screen, WireframeElement } from "@/lib/generation/schema";
  * Deterministic element-level diff between two versions of one screen.
  * Elements are aligned by index — wireframe edits replace a component in
  * place, so positional alignment is exact, not heuristic.
- *
- * NOTE: whether a diff is "empty" or "big enough to charge for" is
- * deliberately NOT computed here — that is Phase 3 (debit decision) work.
  */
 
 export type ElementDiffStatus = "unchanged" | "changed" | "added" | "removed";
@@ -62,4 +59,17 @@ export function highlightedAfterIndices(diff: ScreenDiff): number[] {
 /** Indices into before.elements that were removed (indicated on the "old" side). */
 export function removedBeforeIndices(diff: ScreenDiff): number[] {
   return diff.entries.filter((e) => e.status === "removed").map((e) => e.index);
+}
+
+/**
+ * True when the proposed screen is indistinguishable from the current one.
+ * This is the debit gate: an empty diff must never be approvable, and must
+ * never consume a credit ("diff before debit" — no visible change, no charge).
+ */
+export function isEmptyDiff(diff: ScreenDiff): boolean {
+  return (
+    !diff.nameChanged &&
+    !diff.purposeChanged &&
+    diff.entries.every((e) => e.status === "unchanged")
+  );
 }

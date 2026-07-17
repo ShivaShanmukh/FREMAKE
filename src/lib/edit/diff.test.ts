@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Screen } from "@/lib/generation/schema";
-import { diffScreens, highlightedAfterIndices, removedBeforeIndices } from "./diff";
+import { diffScreens, highlightedAfterIndices, isEmptyDiff, removedBeforeIndices } from "./diff";
 
 const base: Screen = {
   name: "Home",
@@ -47,5 +47,32 @@ describe("diffScreens", () => {
     expect(diff.nameChanged).toBe(true);
     expect(diff.purposeChanged).toBe(true);
     expect(highlightedAfterIndices(diff)).toEqual([]);
+  });
+});
+
+describe("isEmptyDiff (the debit gate)", () => {
+  it("is empty when the proposed screen is byte-identical", () => {
+    expect(isEmptyDiff(diffScreens(base, structuredClone(base)))).toBe(true);
+  });
+
+  it("is not empty for a single label change", () => {
+    const after = structuredClone(base);
+    after.elements[1] = { type: "button", label: "Add a habit" };
+    expect(isEmptyDiff(diffScreens(base, after))).toBe(false);
+  });
+
+  it("is not empty for an added or removed element", () => {
+    const grown = structuredClone(base);
+    grown.elements.push({ type: "nav", label: "Home · Stats" });
+    expect(isEmptyDiff(diffScreens(base, grown))).toBe(false);
+
+    const shrunk = structuredClone(base);
+    shrunk.elements.pop();
+    expect(isEmptyDiff(diffScreens(base, shrunk))).toBe(false);
+  });
+
+  it("is not empty when only the screen name or purpose changed", () => {
+    expect(isEmptyDiff(diffScreens(base, { ...structuredClone(base), name: "Dashboard" }))).toBe(false);
+    expect(isEmptyDiff(diffScreens(base, { ...structuredClone(base), purpose: "Hub" }))).toBe(false);
   });
 });

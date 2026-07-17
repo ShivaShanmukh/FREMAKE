@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import type { GenerationResult } from "@/lib/generation/schema";
 import type { Selection } from "@/lib/edit/types";
+import { GENERATION_COST } from "@/lib/credits/costs";
+import { useCredits } from "@/lib/credits/useCredits";
 
 // Konva touches `window` — must not be server-rendered.
 const WireframeCanvas = dynamic(() => import("@/components/WireframeCanvas"), {
@@ -24,6 +26,7 @@ export default function StudioPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const credits = useCredits();
 
   async function generate() {
     setLoading(true);
@@ -38,9 +41,11 @@ export default function StudioPage() {
       });
       const data: { result?: GenerationResult; error?: string } = await res.json();
       if (!res.ok || !data.result) {
+        // Failed generation — no result, no charge.
         setError(data.error ?? `Generation failed (HTTP ${res.status}).`);
         return;
       }
+      credits.charge(GENERATION_COST);
       setResult(data.result);
     } catch {
       setError("Network error — is the dev server still running?");
@@ -51,12 +56,20 @@ export default function StudioPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-8">
-      <div>
-        <h1 className="text-2xl font-bold">FrMake Studio</h1>
-        <p className="text-sm text-neutral-500">
-          Describe your product in 3–5 sentences. You get personas, an
-          information architecture, and 5 low-fidelity wireframe screens.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">FrMake Studio</h1>
+          <p className="text-sm text-neutral-500">
+            Describe your product in 3–5 sentences. You get personas, an
+            information architecture, and 5 low-fidelity wireframe screens.
+          </p>
+        </div>
+        <span
+          className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium dark:border-neutral-700"
+          data-testid="credit-balance"
+        >
+          Credits: {credits.balance}
+        </span>
       </div>
 
       <textarea
@@ -71,11 +84,20 @@ export default function StudioPage() {
       <div className="flex items-center gap-4">
         <button
           onClick={generate}
-          disabled={loading || description.trim().length < 20}
+          disabled={
+            loading ||
+            description.trim().length < 20 ||
+            !credits.canAfford(GENERATION_COST)
+          }
           className="rounded-md bg-neutral-900 px-5 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black"
         >
-          {loading ? "Generating…" : "Generate wireframes"}
+          {loading ? "Generating…" : `Generate wireframes — ${GENERATION_COST} credits`}
         </button>
+        {!credits.canAfford(GENERATION_COST) && (
+          <p className="text-sm text-red-700 dark:text-red-300" data-testid="insufficient-generation">
+            Not enough credits to generate (needs {GENERATION_COST}).
+          </p>
+        )}
         {loading && (
           <p className="text-sm text-neutral-500">
             Thinking through personas, IA, and 5 screens — this can take a
@@ -149,6 +171,8 @@ export default function StudioPage() {
               key={`${selection.screenIndex}:${selection.elementIndex ?? "screen"}`}
               result={result}
               selection={selection}
+              balance={credits.balance}
+              onCharge={credits.charge}
               onApply={(next) => {
                 setResult(next);
                 setSelection(null);
