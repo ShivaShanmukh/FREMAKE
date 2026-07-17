@@ -6,6 +6,7 @@ import type { GenerationResult } from "@/lib/generation/schema";
 import type { Selection } from "@/lib/edit/types";
 import { GENERATION_COST } from "@/lib/credits/costs";
 import { useCredits } from "@/lib/credits/useCredits";
+import { STARTER_ZIP_NAME, starterProject } from "@/lib/export/project";
 
 // Konva touches `window` — must not be server-rendered.
 const WireframeCanvas = dynamic(() => import("@/components/WireframeCanvas"), {
@@ -153,7 +154,20 @@ export default function StudioPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-lg font-semibold">Wireframes</h2>
+            <div className="mb-2 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold">Wireframes</h2>
+              <button
+                onClick={async () => {
+                  // Deterministic codegen, no model call — free, no debit.
+                  const { downloadZip } = await import("@/lib/export/download");
+                  await downloadZip(starterProject(result.screens), STARTER_ZIP_NAME);
+                }}
+                data-testid="export-starter"
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700"
+              >
+                Export React Native starter — free
+              </button>
+            </div>
             <p className="mb-2 text-sm text-neutral-500">
               Click a screen frame or a single element to target an edit.
             </p>
