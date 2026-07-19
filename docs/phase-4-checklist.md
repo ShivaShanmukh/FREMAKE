@@ -1,5 +1,24 @@
 # Phase 4 — Manual Checklist (React Native Export)
 
+## Re-run 2026-07-19 against the rebuilt stack (real Clerk + Postgres ledger)
+
+The original run below predates the Phase 3 rebuild. Re-verified with a
+real Clerk session (alice test user), a real Claude generation charged
+through the server ledger, and a real export download — nothing mocked:
+
+| # | Step | Result |
+|---|------|--------|
+| 1 | Real generation as signed-in Clerk user | Server ledger row `-10 generation`; badge 1999 → 1989 | 
+| 2 | Export clicked | `frmake-react-native-starter.zip` downloads; badge stays 1989; **zero new ledger rows** (DB row count 3 before and after) |
+| 3 | Fresh zip → `npm install` → `npx tsc --noEmit` (strict) | Clean against real RN/Expo types (screens: OnboardingBudgetSetup, RecipeBox, RecipeDetail, ShoppingList, WeeklyMealPlanner) |
+| 4 | Page errors across the session | None |
+
+The export e2e test (`e2e/export.spec.ts`) was already updated to the
+server-backed client contract during the rebuild and runs green in CI
+(mocked endpoints there, as with all e2e).
+
+## Original run (2026-07-17, pre-rebuild localStorage system)
+
 Run 2026-07-17. Concept-doc milestone: "Week 5 — React Native export:
 screens to Expo-compatible starter". The export is deterministic codegen
 from the semantic wireframe schema — no model call, zero tokens — so it is
