@@ -11,6 +11,8 @@ export type Credits = {
   canAfford: (cost: number) => boolean;
   /** Adopt a balance returned by a server response (generate/approve). */
   setBalance: (balance: number) => void;
+  /** Re-fetch the balance from the server (e.g. after a top-up). */
+  refresh: () => void;
 };
 
 /**
@@ -22,27 +24,27 @@ export function useCredits(): Credits {
   const [balance, setBalanceState] = useState<number | null>(null);
   const [signedOut, setSignedOut] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const refresh = useCallback((): void => {
     void fetch("/api/credits")
       .then(async (res) => {
-        if (cancelled) return;
         if (res.status === 401) {
           setSignedOut(true);
           return;
         }
         const data: { balance?: number } = await res.json();
-        if (!cancelled && typeof data.balance === "number") {
+        if (typeof data.balance === "number") {
+          setSignedOut(false);
           setBalanceState(data.balance);
         }
       })
       .catch(() => {
-        // Leave balance null — actions stay disabled until a reload.
+        // Leave balance as-is — actions stay disabled until a retry.
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const setBalance = useCallback((next: number): void => {
     setSignedOut(false);
@@ -54,5 +56,6 @@ export function useCredits(): Credits {
     signedOut,
     canAfford: (cost: number) => balance !== null && balance >= cost,
     setBalance,
+    refresh,
   };
 }

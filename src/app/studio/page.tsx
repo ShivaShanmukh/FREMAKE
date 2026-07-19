@@ -8,6 +8,8 @@ import type { Selection } from "@/lib/edit/types";
 import { GENERATION_COST } from "@/lib/credits/costs";
 import { useCredits } from "@/lib/credits/useCredits";
 import { STARTER_ZIP_NAME, starterProject } from "@/lib/export/project";
+import { BuyCredits } from "@/components/BuyCredits";
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 
 // Konva touches `window` — must not be server-rendered.
 const WireframeCanvas = dynamic(() => import("@/components/WireframeCanvas"), {
@@ -69,13 +71,18 @@ export default function StudioPage() {
             information architecture, and 5 low-fidelity wireframe screens.
           </p>
         </div>
-        <span
-          className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium dark:border-neutral-700"
-          data-testid="credit-balance"
-        >
-          Credits: {credits.balance ?? "—"}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium dark:border-neutral-700"
+            data-testid="credit-balance"
+          >
+            Credits: {credits.balance ?? "—"}
+          </span>
+          <BuyCredits disabled={credits.signedOut} onRefresh={credits.refresh} />
+        </div>
       </div>
+
+      <OnboardingWalkthrough signedOut={credits.signedOut} />
 
       {credits.signedOut && (
         <div
