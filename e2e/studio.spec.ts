@@ -18,6 +18,7 @@ test("studio renders personas, IA, and 5 wireframe screens on canvas", async ({
   const pageErrors: string[] = [];
   page.on("pageerror", (e) => pageErrors.push(e.message));
 
+  await page.route("**/api/credits", (route) => route.fulfill({ json: { balance: 2000 } }));
   await page.route("**/api/generate", (route) =>
     route.fulfill({ json: fixture }),
   );
@@ -43,6 +44,7 @@ test("studio renders personas, IA, and 5 wireframe screens on canvas", async ({
 });
 
 test("studio shows the error state when generation fails", async ({ page }) => {
+  await page.route("**/api/credits", (route) => route.fulfill({ json: { balance: 2000 } }));
   await page.route("**/api/generate", (route) =>
     route.fulfill({
       status: 502,

@@ -11,9 +11,9 @@ import { DiffDecision } from "./wireframe/DiffDecision";
 type EditFlowProps = {
   result: GenerationResult;
   selection: Selection;
-  balance: number;
-  /** Called with the edit's cost at the moment of approval — never before. */
-  onCharge: (cost: number) => void;
+  balance: number | null;
+  /** Adopts the post-charge balance returned by /api/approve. */
+  onBalance: (balance: number) => void;
   /** Approval hands over the exact candidate the diff displayed. */
   onApply: (next: GenerationResult) => void;
 };
@@ -23,9 +23,10 @@ type EditResponse = {
   error?: string;
 };
 
-export function EditFlow({ result, selection, balance, onCharge, onApply }: EditFlowProps) {
+export function EditFlow({ result, selection, balance, onBalance, onApply }: EditFlowProps) {
   const [instruction, setInstruction] = useState("");
   const [loading, setLoading] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<GenerationResult | null>(null);
 
@@ -40,7 +41,7 @@ export function EditFlow({ result, selection, balance, onCharge, onApply }: Edit
       : `screen “${target.screen.name}”`;
 
   const cost = editCost(target.kind);
-  const affordable = balance >= cost;
+  const affordable = balance !== null && balance >= cost;
   const before = result.screens[selection.screenIndex];
   const after = candidate?.screens[selection.screenIndex];
   const emptyDiff = after ? isEmptyDiff(diffScreens(before, after)) : false;
@@ -82,7 +83,7 @@ export function EditFlow({ result, selection, balance, onCharge, onApply }: Edit
         This edit costs {cost} credit{cost === 1 ? "" : "s"} — charged only when
         you approve the diff.
       </p>
-      {!affordable && (
+      {balance !== null && !affordable && (
         <p className="mt-2 text-sm text-red-700 dark:text-red-300" data-testid="insufficient-credits">
           Not enough credits (balance {balance}, needed {cost}).
         </p>
@@ -117,11 +118,34 @@ export function EditFlow({ result, selection, balance, onCharge, onApply }: Edit
           after={after}
           cost={cost}
           emptyDiff={emptyDiff}
-          onApprove={() => {
-            // Charge and commit together: the debit is exactly the cost
-            // quoted upfront, and only ever fires on approval.
-            onCharge(cost);
-            onApply(candidate);
+          approving={approving}
+          onApprove={async () => {
+            // The server writes the charge row first; the change is only
+            // applied once the debit committed. A failed debit applies
+            // nothing.
+            setApproving(true);
+            setError(null);
+            try {
+              const res = await fetch("/api/approve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: target.kind }),
+              });
+              const data: { balance?: number; error?: string } = await res.json();
+              if (!res.ok || typeof data.balance !== "number") {
+                setError(data.error ?? `Approval failed (HTTP ${res.status}).`);
+                if (typeof data.balance === "number") {
+                  onBalance(data.balance);
+                }
+                return;
+              }
+              onBalance(data.balance);
+              onApply(candidate);
+            } catch {
+              setError("Network error — the change was not applied and nothing was charged.");
+            } finally {
+              setApproving(false);
+            }
           }}
           onDismiss={() => setCandidate(null)}
         />

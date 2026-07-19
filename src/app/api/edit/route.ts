@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { editCost } from "@/lib/credits/costs";
+import { requireCredits } from "@/lib/credits/guard";
 import { buildEditUserPrompt, EDIT_PROMPT_VERSION, EDIT_SYSTEM_PROMPT } from "@/lib/edit/prompt";
 import { screenSchema, wireframeElementSchema } from "@/lib/generation/schema";
 
@@ -48,6 +50,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const { instruction, target } = parsedBody.data;
+
+  // Server-side gate BEFORE the model call: the proposal itself is free,
+  // but a user whose balance cannot cover the eventual approval may not
+  // spend tokens at all ("diff before debit" still means no freeloading).
+  // The charge row is written by /api/approve, never here.
+  const guard = await requireCredits(request, editCost(target.kind));
+  if (guard instanceof NextResponse) {
+    return guard;
+  }
+
   const outputSchema = target.kind === "element" ? wireframeElementSchema : screenSchema;
   const client = new Anthropic();
 
@@ -116,6 +128,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (error instanceof Anthropic.APIError) {
       return NextResponse.json(
         { error: `Model provider error (${error.status ?? "unknown"}). Retry shortly.` },
+        { status: 502 },
+      );
+    }
+    // Structured-output parse failures throw the SDK base error. No
+    // charge row exists for a failed proposal — proposals are never
+    // charged at all; only /api/approve debits.
+    if (error instanceof Anthropic.AnthropicError) {
+      return NextResponse.json(
+        { error: "The model returned an unusable edit. Try rephrasing the instruction." },
         { status: 502 },
       );
     }

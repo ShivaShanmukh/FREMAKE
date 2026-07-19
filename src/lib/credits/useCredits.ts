@@ -1,50 +1,58 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { STARTING_BALANCE } from "./costs";
-import { canAfford, createLocalStorageStore, debit, type CreditStore } from "./ledger";
+import { useCallback, useEffect, useState } from "react";
 
 export type Credits = {
-  balance: number;
-  /** True once the persisted balance has been read (avoids SSR mismatch). */
-  hydrated: boolean;
+  /** Server-computed balance; null until loaded or when signed out. */
+  balance: number | null;
+  /** True when /api/credits said 401 — the user must sign in. */
+  signedOut: boolean;
+  /** UI convenience only — the server re-checks every action itself. */
   canAfford: (cost: number) => boolean;
-  /** Charge exactly at approval time — never on propose, reject, or failure. */
-  charge: (cost: number) => void;
+  /** Adopt a balance returned by a server response (generate/approve). */
+  setBalance: (balance: number) => void;
 };
 
-export function useCredits(store?: CreditStore): Credits {
-  const storeRef = useRef<CreditStore | null>(store ?? null);
-  const [balance, setBalance] = useState(STARTING_BALANCE);
-  const [hydrated, setHydrated] = useState(false);
+/**
+ * The balance lives in Postgres (SUM of the user's ledger rows) and is
+ * only ever read from, or returned by, the server. Nothing is persisted
+ * client-side; this hook is a cache of the server's last answer.
+ */
+export function useCredits(): Credits {
+  const [balance, setBalanceState] = useState<number | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
-    if (!storeRef.current) {
-      storeRef.current = createLocalStorageStore(
-        typeof window === "undefined" ? null : window.localStorage,
-      );
-    }
-    const persisted = storeRef.current.load();
-    if (persisted !== null) {
-      setBalance(persisted);
-    }
-    setHydrated(true);
+    let cancelled = false;
+    void fetch("/api/credits")
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 401) {
+          setSignedOut(true);
+          return;
+        }
+        const data: { balance?: number } = await res.json();
+        if (!cancelled && typeof data.balance === "number") {
+          setBalanceState(data.balance);
+        }
+      })
+      .catch(() => {
+        // Leave balance null — actions stay disabled until a reload.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (hydrated) {
-      storeRef.current?.save(balance);
-    }
-  }, [balance, hydrated]);
-
-  const charge = useCallback((cost: number): void => {
-    setBalance((current) => debit(current, cost));
+  const setBalance = useCallback((next: number): void => {
+    setSignedOut(false);
+    setBalanceState(next);
   }, []);
 
   return {
     balance,
-    hydrated,
-    canAfford: (cost: number) => canAfford(balance, cost),
-    charge,
+    signedOut,
+    canAfford: (cost: number) => balance !== null && balance >= cost,
+    setBalance,
   };
 }

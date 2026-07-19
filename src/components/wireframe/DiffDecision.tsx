@@ -9,6 +9,8 @@ type DiffDecisionProps = {
   cost: number;
   /** An empty diff can only be dismissed — never approved, never charged. */
   emptyDiff: boolean;
+  /** True while the server debit is in flight. */
+  approving: boolean;
   onApprove: () => void;
   onDismiss: () => void;
 };
@@ -18,7 +20,7 @@ type DiffDecisionProps = {
  * follows it. Approval is the only path that costs a credit; an empty
  * diff removes the approve option entirely.
  */
-export function DiffDecision({ before, after, cost, emptyDiff, onApprove, onDismiss }: DiffDecisionProps) {
+export function DiffDecision({ before, after, cost, emptyDiff, approving, onApprove, onDismiss }: DiffDecisionProps) {
   return (
     <div className="mt-4 flex flex-col gap-4">
       <DiffView before={before} after={after} />
@@ -42,13 +44,15 @@ export function DiffDecision({ before, after, cost, emptyDiff, onApprove, onDism
         <div className="flex gap-3">
           <button
             onClick={onApprove}
-            className="rounded-md bg-emerald-700 px-4 py-2 text-sm text-white"
+            disabled={approving}
+            className="rounded-md bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-40"
           >
-            Approve — {cost} credit{cost === 1 ? "" : "s"}
+            {approving ? "Approving…" : `Approve — ${cost} credit${cost === 1 ? "" : "s"}`}
           </button>
           <button
             onClick={onDismiss}
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700"
+            disabled={approving}
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm disabled:opacity-40 dark:border-neutral-700"
           >
             Reject
           </button>

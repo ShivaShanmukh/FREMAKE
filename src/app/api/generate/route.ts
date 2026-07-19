@@ -2,6 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { GENERATION_COST } from "@/lib/credits/costs";
+import { requireCredits } from "@/lib/credits/guard";
+import { charge } from "@/lib/credits/server";
 import { buildUserPrompt, PROMPT_VERSION, SYSTEM_PROMPT } from "@/lib/generation/prompt";
 import { generationResultSchema } from "@/lib/generation/schema";
 import { validateGenerationResult } from "@/lib/generation/validate";
@@ -38,6 +41,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       { error: "Generation is not configured: set ANTHROPIC_API_KEY in .env.local." },
       { status: 503 },
     );
+  }
+
+  // Server-side gate: authenticated + balance covers the cost, checked
+  // BEFORE any tokens are spent. Bypassing the UI cannot bypass this.
+  const guard = await requireCredits(request, GENERATION_COST);
+  if (guard instanceof NextResponse) {
+    return guard;
   }
 
   const client = new Anthropic();
@@ -78,8 +88,21 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    // Debit only now that a usable result exists — every failure path
+    // above returned without writing a ledger row. The charge re-checks
+    // the balance atomically; a concurrent-spend race returns 402 here
+    // rather than ever letting the ledger go negative.
+    const charged = await charge(guard.userId, GENERATION_COST, "generation");
+    if (!charged.ok) {
+      return NextResponse.json(
+        { error: "Your balance changed mid-request and no longer covers this generation.", balance: charged.balance },
+        { status: 402 },
+      );
+    }
+
     return NextResponse.json({
       result: validated.data,
+      balance: charged.balance,
       promptVersion: PROMPT_VERSION,
       usage: {
         inputTokens: response.usage.input_tokens,
@@ -108,6 +131,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (error instanceof Anthropic.APIError) {
       return NextResponse.json(
         { error: `Model provider error (${error.status ?? "unknown"}). Retry shortly.` },
+        { status: 502 },
+      );
+    }
+    // Structured-output parse failures (e.g. the model returned 4 screens
+    // instead of 5) throw the SDK base error. Nothing was charged — the
+    // debit only happens after successful validation.
+    if (error instanceof Anthropic.AnthropicError) {
+      return NextResponse.json(
+        { error: "The model returned an unusable result. Nothing was charged — try again." },
         { status: 502 },
       );
     }

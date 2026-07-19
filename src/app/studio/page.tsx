@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 import type { GenerationResult } from "@/lib/generation/schema";
 import type { Selection } from "@/lib/edit/types";
@@ -40,13 +41,16 @@ export default function StudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description }),
       });
-      const data: { result?: GenerationResult; error?: string } = await res.json();
+      const data: { result?: GenerationResult; balance?: number; error?: string } = await res.json();
+      // The server already wrote (or refused) the ledger row — the client
+      // just adopts whatever balance it reports.
+      if (typeof data.balance === "number") {
+        credits.setBalance(data.balance);
+      }
       if (!res.ok || !data.result) {
-        // Failed generation — no result, no charge.
         setError(data.error ?? `Generation failed (HTTP ${res.status}).`);
         return;
       }
-      credits.charge(GENERATION_COST);
       setResult(data.result);
     } catch {
       setError("Network error — is the dev server still running?");
@@ -69,9 +73,21 @@ export default function StudioPage() {
           className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium dark:border-neutral-700"
           data-testid="credit-balance"
         >
-          Credits: {credits.balance}
+          Credits: {credits.balance ?? "—"}
         </span>
       </div>
+
+      {credits.signedOut && (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+          data-testid="signed-out-notice"
+        >
+          <Link href="/sign-in" className="font-medium underline">
+            Sign in
+          </Link>{" "}
+          to get your starter credits and generate wireframes.
+        </div>
+      )}
 
       <textarea
         value={description}
@@ -94,7 +110,7 @@ export default function StudioPage() {
         >
           {loading ? "Generating…" : `Generate wireframes — ${GENERATION_COST} credits`}
         </button>
-        {!credits.canAfford(GENERATION_COST) && (
+        {credits.balance !== null && !credits.canAfford(GENERATION_COST) && (
           <p className="text-sm text-red-700 dark:text-red-300" data-testid="insufficient-generation">
             Not enough credits to generate (needs {GENERATION_COST}).
           </p>
@@ -186,7 +202,7 @@ export default function StudioPage() {
               result={result}
               selection={selection}
               balance={credits.balance}
-              onCharge={credits.charge}
+              onBalance={credits.setBalance}
               onApply={(next) => {
                 setResult(next);
                 setSelection(null);

@@ -19,6 +19,8 @@ const DESCRIPTION =
 const EDITED_ELEMENT = { type: "button", label: "Remind me gently" };
 
 async function generateWireframes(page: Page): Promise<void> {
+  await page.route("**/api/credits", (route) => route.fulfill({ json: { balance: 2000 } }));
+  await page.route("**/api/approve", (route) => route.fulfill({ json: { balance: 1999 } }));
   await page.route("**/api/generate", (route) => route.fulfill({ json: fixture }));
   await page.goto("/studio");
   await page.fill("textarea", DESCRIPTION);

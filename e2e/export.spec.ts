@@ -19,12 +19,13 @@ const DESCRIPTION =
   "Parents add small daily habits and see weekly progress as a family.";
 
 test("export downloads a complete starter zip without charging credits", async ({ page }, testInfo) => {
+  await page.route("**/api/credits", (route) => route.fulfill({ json: { balance: 2000 } }));
   await page.route("**/api/generate", (route) => route.fulfill({ json: fixture }));
   await page.goto("/studio");
   await page.fill("textarea", DESCRIPTION);
   await page.click("button:has-text('Generate wireframes')");
   await expect(page.locator(".konvajs-content canvas")).toHaveCount(1);
-  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 1990");
+  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 2000");
 
   const downloadPromise = page.waitForEvent("download");
   await page.click('[data-testid="export-starter"]');
@@ -63,5 +64,5 @@ test("export downloads a complete starter zip without charging credits", async (
   }
 
   // Free: the balance is untouched by export.
-  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 1990");
+  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 2000");
 });
