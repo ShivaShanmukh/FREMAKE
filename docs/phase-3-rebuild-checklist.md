@@ -66,11 +66,26 @@ the diff open and applies nothing; signed-out state).
 (`AnthropicError`, e.g. model returns 4 screens) previously escaped as raw
 500s; both routes now return a clean 502 and, provably, no charge.
 
+## Real-Clerk verification (2026-07-19, keys added by Siva)
+
+Two real Clerk users created in the dev instance and signed in through
+the real Clerk client (sign-in-token ticket flow) in separate browser
+contexts:
+
+```
+alice user_3GjJEoIxwc89CdU6V4hkwSZ7UNw → grant 2000, approve −1 → 1999
+bob   user_3GjJEsDPWZwkYLySX6oEhJhwhmo → grant 2000, untouched  → 2000
+```
+
+Ledger rows keyed by real Clerk user IDs match the API balances exactly;
+the studio badge for signed-in alice reads "Credits: 1999".
+Unauthenticated `/api/credits` with Clerk active → 401. With keys
+present the dev bypass is dead code (Clerk branch resolves first). The
+two test users were left in the Clerk dev instance as reusable test
+accounts.
+
 ## Known limitations / next
 
-- **Real Clerk login untested — keys still not created** (blocker for the
-  two-real-users criterion; everything else is verified via the dev
-  bypass, which is identical downstream of user-ID resolution).
 - `/api/approve` trusts the claimed target kind (1 vs 5 credits); binding
   approvals to a server-stored proposal needs persisted designs (future
   phase, same as monthly refills and paid export gating).
