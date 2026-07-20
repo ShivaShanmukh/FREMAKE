@@ -81,7 +81,7 @@ function PayForm({ label, onClose, onPaid }: Omit<CheckoutModalProps, "clientSec
   }
 
   return (
-    <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl dark:bg-neutral-900">
+    <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-neutral-900">
       <h2 className="text-base font-semibold">Buy {label}</h2>
       <div className="mt-3 flex flex-col gap-2">
         <input

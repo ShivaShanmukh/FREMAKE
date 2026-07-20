@@ -63,6 +63,37 @@ top-up idempotency tests) + 15 e2e green; lint/typecheck/build clean.
   the user across devices/sessions rather than being local UI state.
   Skip counts as completed.
 
+## Account switch (2026-07-20): India account → UK account
+
+Siva signed up for a second Stripe account by mistake while building this
+(the first, `acct_1N81ahSC6pnSVNLR`, was India-domiciled) and moved the
+app to the correct UK one (`acct_1TvEJ2HyVVJ3JM91`, country `GB`, default
+currency GBP). Also unactivated in test mode, so the embedded-Elements
+approach above still applies regardless of account.
+
+Two issues surfaced while switching, both fixed:
+
+1. **Stale publishable key.** Next.js inlines `NEXT_PUBLIC_*` env vars at
+   **build time**, including when read from server-side route code —
+   restarting `next start` after editing `.env.local` does NOT pick up a
+   new `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; only `npm run build` does.
+   The old build kept serving the India account's publishable key
+   alongside the new UK secret key, and Stripe's Elements API correctly
+   rejected the mismatch (400: "publishable key used belongs to a
+   different account"). Rebuilding fixed it.
+2. **Modal overflow with 3 payment methods.** The UK account's
+   PaymentIntent resolves `card`, `link`, and `revolut_pay` as eligible
+   methods (the India account/setup had effectively offered only
+   `card`), so the Payment Element renders a taller accordion with a
+   method selector. The checkout modal had no internal scroll, so the
+   Pay button could go off-screen. Fixed: `CheckoutModal.tsx`'s card
+   container now has `max-h-[90vh] overflow-y-auto`.
+
+Re-ran the full live checklist above against the UK account after both
+fixes — identical result: real payment (2000 → 3000), ledger row with
+the new account's PaymentIntent id, webhook resend produced zero
+double-credit, onboarding stayed gone on reload.
+
 ## Known limitations / next
 
 - The billing-details form is minimal (no address validation, no saved
