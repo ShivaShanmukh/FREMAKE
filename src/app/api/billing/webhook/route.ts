@@ -8,9 +8,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * Stripe webhook. Signature-verified against STRIPE_WEBHOOK_SECRET; only
- * `checkout.session.completed` with payment_status "paid" credits the
- * ledger. Idempotency lives in applyTopup (unique stripe_ref), so
- * Stripe's at-least-once delivery can never double-credit.
+ * `payment_intent.succeeded` credits the ledger (top-ups use an embedded
+ * Stripe Elements PaymentIntent, not hosted Checkout — see
+ * checkout/route.ts for why). Idempotency lives in applyTopup (unique
+ * stripe_ref = the PaymentIntent id), so Stripe's at-least-once delivery
+ * can never double-credit.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -36,19 +38,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
   }
 
-  if (event.type !== "checkout.session.completed") {
+  if (event.type !== "payment_intent.succeeded") {
     return NextResponse.json({ received: true, ignored: event.type });
   }
 
-  const session = event.data.object;
-  const userId = session.metadata?.userId;
-  const credits = Number(session.metadata?.credits);
-  if (session.payment_status !== "paid" || !userId || !Number.isInteger(credits) || credits <= 0) {
-    logger.warn(`[billing] unusable checkout.session.completed ${session.id}`);
-    return NextResponse.json({ received: true, ignored: "unusable session" });
+  const intent = event.data.object;
+  const userId = intent.metadata?.userId;
+  const credits = Number(intent.metadata?.credits);
+  if (intent.status !== "succeeded" || !userId || !Number.isInteger(credits) || credits <= 0) {
+    logger.warn(`[billing] unusable payment_intent.succeeded ${intent.id}`);
+    return NextResponse.json({ received: true, ignored: "unusable payment intent" });
   }
 
-  const outcome = await applyTopup(userId, credits, session.id);
-  logger.info(`[billing] session ${session.id}: ${outcome} (${credits} credits for ${userId})`);
+  const outcome = await applyTopup(userId, credits, intent.id);
+  logger.info(`[billing] payment ${intent.id}: ${outcome} (${credits} credits for ${userId})`);
   return NextResponse.json({ received: true, outcome });
 }

@@ -8,7 +8,14 @@ export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({ packageId: z.string().min(1) });
 
-/** Creates a Stripe Checkout Session for a credit top-up. */
+/**
+ * Creates a Stripe PaymentIntent for a credit top-up and returns its
+ * client secret, so the client can render an embedded Stripe Elements
+ * form (rather than redirect to Stripe's hosted Checkout page, which
+ * requires the account to have a public business name set — this
+ * account doesn't, and Elements has no such requirement). The ledger is
+ * credited by the webhook on `payment_intent.succeeded`, never here.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
   const userId = await requireUserId(request);
   if (!userId) {
@@ -33,25 +40,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Unknown credit package." }, { status: 400 });
   }
 
-  const origin = request.headers.get("origin") ?? "http://localhost:3000";
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "gbp",
-          unit_amount: pack.pricePence,
-          product_data: { name: `FrMake — ${pack.label}` },
-        },
-      },
-    ],
+  const intent = await stripe.paymentIntents.create({
+    amount: pack.pricePence,
+    currency: "gbp",
+    // India-domiciled Stripe accounts require a description on
+    // cross-border (export) transactions per RBI regulations.
+    description: `FrMake — ${pack.label}`,
+    automatic_payment_methods: { enabled: true, allow_redirects: "never" },
     // The webhook reads these to write the ledger row.
     metadata: { userId, packageId: pack.id, credits: String(pack.credits) },
-    success_url: `${origin}/studio?topup=success`,
-    cancel_url: `${origin}/studio?topup=cancelled`,
   });
 
-  return NextResponse.json({ url: session.url });
+  return NextResponse.json({
+    clientSecret: intent.client_secret,
+    label: pack.label,
+    publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+  });
 }

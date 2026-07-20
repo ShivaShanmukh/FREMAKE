@@ -1,14 +1,17 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Phase 5 e2e: buy-credits checkout contract and the show-once
- * onboarding walkthrough. Stripe itself is exercised in the live
- * checklist (real test card + resent webhook); here the endpoints are
- * mocked to pin the client behaviour.
+ * Phase 5 e2e: buy-credits checkout contract (embedded Stripe Elements,
+ * not hosted Checkout — see checkout/route.ts) and the show-once
+ * onboarding walkthrough. Stripe.js itself is not exercised here (that
+ * needs a real publishable key + network to js.stripe.com); the live
+ * checklist covers the real payment end-to-end. This pins the client
+ * contract: what /api/billing/checkout is called with, and that the
+ * modal/balance react correctly once Stripe confirms payment.
  */
 
-test("buy credits: posts the package, follows the checkout URL, success banner refreshes balance", async ({ page }) => {
-  let creditsServed = 2000;
+test("buy credits: posts the package, opens the modal, and refreshes balance once Stripe confirms", async ({ page }) => {
+  const creditsServed = 2000;
   let checkoutPayload = "";
   await page.route("**/api/credits", (route) =>
     route.fulfill({ json: { balance: creditsServed } }),
@@ -16,10 +19,16 @@ test("buy credits: posts the package, follows the checkout URL, success banner r
   await page.route("**/api/onboarding", (route) => route.fulfill({ json: { onboarded: true } }));
   await page.route("**/api/billing/checkout", (route) => {
     checkoutPayload = route.request().postData() ?? "";
-    // Simulate Stripe: payment succeeds and redirects back with 1000 credits added.
-    creditsServed += 1000;
-    return route.fulfill({ json: { url: "/studio?topup=success" } });
+    return route.fulfill({
+      json: {
+        clientSecret: "pi_test_secret_abc",
+        publishableKey: "pk_test_fake",
+        label: "1,000 credits — £6",
+      },
+    });
   });
+  // Stub Stripe.js so the modal renders without hitting js.stripe.com.
+  await page.route("https://js.stripe.com/**", (route) => route.fulfill({ status: 404, body: "" }));
 
   await page.goto("/studio");
   await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 2000");
@@ -27,11 +36,16 @@ test("buy credits: posts the package, follows the checkout URL, success banner r
   await page.click('[data-testid="buy-credits"]');
   await page.click('[data-testid="package-topup_1000"]');
 
-  await expect(page.locator('[data-testid="topup-success"]')).toBeVisible();
+  await expect(page.locator('[data-testid="checkout-modal"]')).toBeVisible();
   expect(JSON.parse(checkoutPayload)).toEqual({ packageId: "topup_1000" });
-  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 3000");
-  // The banner navigation cleaned the query string back to /studio.
-  expect(new URL(page.url()).search).toBe("");
+
+  // Cancel closes the modal without touching the balance — actually
+  // completing a payment requires real Stripe.js (covered by the live
+  // checklist, not this mocked test).
+  await page.click("button:has-text('Cancel')");
+  await expect(page.locator('[data-testid="checkout-modal"]')).toHaveCount(0);
+  expect(creditsServed).toBe(2000);
+  await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 2000");
 });
 
 test("onboarding shows for a new user, completes once, and stays gone", async ({ page }) => {
@@ -50,7 +64,6 @@ test("onboarding shows for a new user, completes once, and stays gone", async ({
   await page.goto("/studio");
   await expect(page.locator('[data-testid="onboarding"]')).toBeVisible();
 
-  // Walk all three steps; the last button label changes.
   await page.click('[data-testid="onboarding-next"]');
   await page.click('[data-testid="onboarding-next"]');
   await expect(page.locator('[data-testid="onboarding-next"]')).toHaveText("Start designing");
@@ -59,7 +72,6 @@ test("onboarding shows for a new user, completes once, and stays gone", async ({
   await expect(page.locator('[data-testid="onboarding"]')).toHaveCount(0);
   expect(completions).toBe(1);
 
-  // Returning user: server now says onboarded — no walkthrough.
   await page.reload();
   await expect(page.locator('[data-testid="credit-balance"]')).toHaveText("Credits: 2000");
   await expect(page.locator('[data-testid="onboarding"]')).toHaveCount(0);
