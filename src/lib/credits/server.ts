@@ -15,7 +15,9 @@ export type ChargeResult =
   | { ok: true; balance: number }
   | { ok: false; balance: number };
 
-async function sumBalance(client: PoolClient, userId: string): Promise<number> {
+/** Exported so approveProposal (src/lib/edit/proposals.ts) can read the
+ *  balance inside the SAME transaction that consumes a proposal. */
+export async function sumBalance(client: PoolClient, userId: string): Promise<number> {
   const { rows } = await client.query<{ balance: number }>(
     "SELECT COALESCE(SUM(amount), 0)::int AS balance FROM credit_transactions WHERE user_id = $1",
     [userId],

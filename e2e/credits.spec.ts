@@ -25,9 +25,13 @@ async function mockCreditServer(page: Page, initial: number): Promise<MockLedger
     route.fulfill({ json: { balance: state.balance } }),
   );
   await page.route("**/api/approve", (route) => {
-    const body = JSON.parse(route.request().postData() ?? "{}") as { kind: string };
-    state.approveCalls.push(body.kind);
-    state.balance -= body.kind === "element" ? 1 : 5;
+    // The real server derives kind/cost from a persisted proposal row,
+    // not from the request body — mocked here by encoding kind into the
+    // fake proposalId the /api/edit mocks below hand out.
+    const body = JSON.parse(route.request().postData() ?? "{}") as { proposalId: string };
+    const kind = body.proposalId.startsWith("prop-screen") ? "screen" : "element";
+    state.approveCalls.push(kind);
+    state.balance -= kind === "element" ? 1 : 5;
     return route.fulfill({ json: { balance: state.balance } });
   });
   return state;
@@ -69,7 +73,7 @@ test("the badge adopts server balances: initial load and post-generation", async
 test("approve posts to /api/approve exactly once; reject never does", async ({ page }) => {
   const state = await mockCreditServer(page, 2000);
   await page.route("**/api/edit", (route) =>
-    route.fulfill({ json: { result: { element: EDITED_ELEMENT } } }),
+    route.fulfill({ json: { result: { element: EDITED_ELEMENT }, proposalId: "prop-element-1" } }),
   );
   await generateWireframes(page, state);
 
@@ -89,7 +93,7 @@ test("approve posts to /api/approve exactly once; reject never does", async ({ p
 test("an empty diff cannot be approved and never reaches the server", async ({ page }) => {
   const state = await mockCreditServer(page, 2000);
   await page.route("**/api/edit", (route) =>
-    route.fulfill({ json: { result: { element: TARGET_ELEMENT } } }),
+    route.fulfill({ json: { result: { element: TARGET_ELEMENT }, proposalId: "prop-element-2" } }),
   );
   await generateWireframes(page, state);
   await proposeElementEdit(page);
@@ -108,7 +112,7 @@ test("a failed server debit shows the error and does NOT apply the change", asyn
     route.fulfill({ status: 402, json: { error: "Not enough credits: this needs 1, you have 0.", balance: 0 } }),
   );
   await page.route("**/api/edit", (route) =>
-    route.fulfill({ json: { result: { element: EDITED_ELEMENT } } }),
+    route.fulfill({ json: { result: { element: EDITED_ELEMENT }, proposalId: "prop-element-1" } }),
   );
   await generateWireframes(page, state);
   await proposeElementEdit(page);

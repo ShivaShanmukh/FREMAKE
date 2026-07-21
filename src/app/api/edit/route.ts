@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { editCost } from "@/lib/credits/costs";
 import { requireCredits } from "@/lib/credits/guard";
+import { createProposal } from "@/lib/edit/proposals";
 import { buildEditUserPrompt, EDIT_PROMPT_VERSION, EDIT_SYSTEM_PROMPT } from "@/lib/edit/prompt";
 import { screenSchema, wireframeElementSchema } from "@/lib/generation/schema";
 
@@ -95,11 +96,18 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    // A server-side record of the true kind/cost, keyed by an opaque id.
+    // /api/approve will consume this by id and charge exactly what's
+    // stored here — the client cannot influence the cost by claiming a
+    // different kind at approval time.
+    const proposalId = await createProposal(guard.userId, target.kind);
+
     return NextResponse.json({
       result:
         target.kind === "element"
           ? { element: validated.data }
           : { screen: validated.data },
+      proposalId,
       promptVersion: EDIT_PROMPT_VERSION,
       usage: {
         inputTokens: response.usage.input_tokens,

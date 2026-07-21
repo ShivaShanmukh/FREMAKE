@@ -1,22 +1,34 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { editCost } from "@/lib/credits/costs";
-import { requireCredits } from "@/lib/credits/guard";
-import { charge } from "@/lib/credits/server";
+import { requireUserId } from "@/lib/auth";
+import { isDbConfigured } from "@/lib/db";
+import { approveProposal } from "@/lib/edit/proposals";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The debit endpoint. Called exactly once per approved edit diff — never
- * on propose, reject, dismiss, or an empty diff (the client removes the
- * approve action for those, and no other code path posts here). Writes
- * one negative ledger row atomically with a balance re-check.
+ * The debit endpoint. Consumes a proposal created by /api/edit and
+ * charges exactly the kind/cost stored on that row — a client cannot
+ * influence the charge by sending any other field (extra keys in the
+ * request body are simply ignored by the schema below; there is no
+ * `kind` or `cost` field to tamper with in the first place).
  */
 const requestSchema = z.object({
-  kind: z.enum(["element", "screen"]),
+  proposalId: z.string().min(1),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const userId = await requireUserId(request);
+  if (!userId) {
+    return NextResponse.json({ error: "Sign in to approve an edit." }, { status: 401 });
+  }
+  if (!isDbConfigured()) {
+    return NextResponse.json(
+      { error: "The credit ledger is not configured: set DATABASE_URL." },
+      { status: 503 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -25,25 +37,24 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "kind must be 'element' or 'screen'." }, { status: 400 });
+    return NextResponse.json({ error: "proposalId is required." }, { status: 400 });
   }
 
-  const cost = editCost(parsed.data.kind);
-  const guard = await requireCredits(request, cost);
-  if (guard instanceof NextResponse) {
-    return guard;
+  const result = await approveProposal(userId, parsed.data.proposalId);
+  if (result.ok) {
+    return NextResponse.json({ balance: result.balance });
   }
-
-  const result = await charge(
-    guard.userId,
-    cost,
-    parsed.data.kind === "element" ? "edit_element" : "edit_screen",
-  );
-  if (!result.ok) {
-    return NextResponse.json(
-      { error: `Not enough credits: this needs ${cost}, you have ${result.balance}.`, balance: result.balance },
-      { status: 402 },
-    );
+  switch (result.reason) {
+    case "not_found":
+      return NextResponse.json({ error: "Unknown proposal — propose the edit again." }, { status: 404 });
+    case "already_used":
+      return NextResponse.json({ error: "This edit has already been approved." }, { status: 409 });
+    case "expired":
+      return NextResponse.json({ error: "This proposal expired — propose the edit again." }, { status: 410 });
+    case "insufficient":
+      return NextResponse.json(
+        { error: `Not enough credits: this needs ${result.cost}, you have ${result.balance}.`, balance: result.balance },
+        { status: 402 },
+      );
   }
-  return NextResponse.json({ balance: result.balance });
 }

@@ -35,7 +35,7 @@ test("element edit: scoped payload, side-by-side diff, approve applies", async (
   let editPayload = "";
   await page.route("**/api/edit", (route) => {
     editPayload = route.request().postData() ?? "";
-    return route.fulfill({ json: { result: { element: EDITED_ELEMENT } } });
+    return route.fulfill({ json: { result: { element: EDITED_ELEMENT }, proposalId: "prop-1" } });
   });
 
   await generateWireframes(page);
@@ -74,7 +74,7 @@ test("element edit: scoped payload, side-by-side diff, approve applies", async (
 
 test("reject keeps the current state and discards the diff", async ({ page }) => {
   await page.route("**/api/edit", (route) =>
-    route.fulfill({ json: { result: { element: EDITED_ELEMENT } } }),
+    route.fulfill({ json: { result: { element: EDITED_ELEMENT }, proposalId: "prop-2" } }),
   );
 
   await generateWireframes(page);

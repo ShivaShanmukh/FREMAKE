@@ -20,6 +20,10 @@ type EditFlowProps = {
 
 type EditResponse = {
   result?: { element: WireframeElement } | { screen: Screen };
+  /** Opaque id of the server-side proposal record — /api/approve looks
+   *  up the true kind/cost by this id, never from anything the client
+   *  sends at approval time. */
+  proposalId?: string;
   error?: string;
 };
 
@@ -29,6 +33,7 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<GenerationResult | null>(null);
+  const [proposalId, setProposalId] = useState<string | null>(null);
 
   const target = selectTarget(result, selection);
   if (!target) {
@@ -50,6 +55,7 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
     setLoading(true);
     setError(null);
     setCandidate(null);
+    setProposalId(null);
     try {
       // Only `target` leaves the client — the rest of `result` stays here.
       const res = await fetch("/api/edit", {
@@ -58,7 +64,7 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
         body: JSON.stringify({ instruction, target }),
       });
       const data: EditResponse = await res.json();
-      if (!res.ok || !data.result) {
+      if (!res.ok || !data.result || !data.proposalId) {
         setError(data.error ?? `Edit failed (HTTP ${res.status}).`);
         return;
       }
@@ -68,6 +74,7 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
         return;
       }
       setCandidate(next);
+      setProposalId(data.proposalId);
     } catch {
       setError("Network error — is the dev server still running?");
     } finally {
@@ -112,7 +119,7 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
         </div>
       )}
 
-      {candidate && after && (
+      {candidate && after && proposalId && (
         <DiffDecision
           before={before}
           after={after}
@@ -122,14 +129,16 @@ export function EditFlow({ result, selection, balance, onBalance, onApply }: Edi
           onApprove={async () => {
             // The server writes the charge row first; the change is only
             // applied once the debit committed. A failed debit applies
-            // nothing.
+            // nothing. Note: only proposalId is sent — the cost is
+            // whatever the server recorded when this proposal was
+            // created, never something this client can influence.
             setApproving(true);
             setError(null);
             try {
               const res = await fetch("/api/approve", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: target.kind }),
+                body: JSON.stringify({ proposalId }),
               });
               const data: { balance?: number; error?: string } = await res.json();
               if (!res.ok || typeof data.balance !== "number") {
