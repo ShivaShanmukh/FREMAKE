@@ -23,3 +23,7 @@ if (posthogKey) {
     capture_pageview: false,
   });
 }
+
+// Lets Sentry instrument client-side route transitions (Next.js's
+// recommended hook for this SDK version).
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

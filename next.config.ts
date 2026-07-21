@@ -16,6 +16,6 @@ export default sentryEnabled
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       silent: true,
-      disableLogger: true,
+      webpack: { treeshake: { removeDebugLogging: true } },
     })
   : nextConfig;

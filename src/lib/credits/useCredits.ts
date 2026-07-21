@@ -8,6 +8,10 @@ export type Credits = {
   balance: number | null;
   /** True when /api/credits said 401 — the user must sign in. */
   signedOut: boolean;
+  /** True when the balance couldn't be loaded for any other reason
+   *  (network error, 500, DB outage) — surfaced so the UI shows a
+   *  message instead of silently sitting at a bare placeholder. */
+  loadError: boolean;
   /** UI convenience only — the server re-checks every action itself. */
   canAfford: (cost: number) => boolean;
   /** Adopt a balance returned by a server response (generate/approve). */
@@ -24,25 +28,37 @@ export type Credits = {
 export function useCredits(): Credits {
   const [balance, setBalanceState] = useState<number | null>(null);
   const [signedOut, setSignedOut] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const refresh = useCallback((): void => {
     void fetch("/api/credits")
       .then(async (res) => {
         if (res.status === 401) {
           setSignedOut(true);
+          setLoadError(false);
+          return;
+        }
+        if (!res.ok) {
+          setLoadError(true);
           return;
         }
         const data: { balance?: number; userId?: string } = await res.json();
         if (typeof data.balance === "number") {
           setSignedOut(false);
+          setLoadError(false);
           setBalanceState(data.balance);
           if (data.userId) {
             identifyUser(data.userId);
           }
+        } else {
+          setLoadError(true);
         }
       })
       .catch(() => {
-        // Leave balance as-is — actions stay disabled until a retry.
+        // Network failure (server unreachable, DB outage, etc.) —
+        // leave the last known balance in place but surface the error
+        // rather than sitting at a placeholder with no explanation.
+        setLoadError(true);
       });
   }, []);
 
@@ -52,12 +68,14 @@ export function useCredits(): Credits {
 
   const setBalance = useCallback((next: number): void => {
     setSignedOut(false);
+    setLoadError(false);
     setBalanceState(next);
   }, []);
 
   return {
     balance,
     signedOut,
+    loadError,
     canAfford: (cost: number) => balance !== null && balance >= cost,
     setBalance,
     refresh,

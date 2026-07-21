@@ -135,6 +135,27 @@ test("signed out: notice shown, balance unknown, generation disabled", async ({ 
   await expect(page.locator("button", { hasText: "Generate wireframes" })).toBeDisabled();
 });
 
+test("server/DB outage: a clear banner shows, generation is paused, nothing crashes", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (e) => pageErrors.push(e.message));
+  await page.route("**/api/credits", (route) => route.fulfill({ status: 500, body: "" }));
+
+  await page.goto("/studio");
+  await expect(page.locator('[data-testid="credits-load-error"]')).toBeVisible();
+  await expect(page.getByText(/Couldn.t reach the server/)).toBeVisible();
+  await expect(balanceBadge(page)).toHaveText("Credits: —");
+  await page.fill("textarea", DESCRIPTION);
+  await expect(page.locator("button", { hasText: "Generate wireframes" })).toBeDisabled();
+  expect(pageErrors).toEqual([]);
+
+  // Recovers cleanly once the server is back and Retry is pressed.
+  await page.unroute("**/api/credits");
+  await page.route("**/api/credits", (route) => route.fulfill({ json: { balance: 2000 } }));
+  await page.click('[data-testid="credits-load-error"] button:has-text("Retry")');
+  await expect(balanceBadge(page)).toHaveText("Credits: 2000");
+  await expect(page.locator('[data-testid="credits-load-error"]')).toHaveCount(0);
+});
+
 test("generation is blocked client-side when the balance cannot cover it", async ({ page }) => {
   await mockCreditServer(page, 3);
   await page.goto("/studio");

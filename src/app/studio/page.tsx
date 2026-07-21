@@ -97,6 +97,21 @@ export default function StudioPage() {
         </div>
       )}
 
+      {credits.loadError && (
+        <div
+          className="flex items-center justify-between gap-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          data-testid="credits-load-error"
+        >
+          <span>Couldn&apos;t reach the server to load your credits. Generation and edits are paused until this recovers.</span>
+          <button
+            onClick={credits.refresh}
+            className="shrink-0 rounded-md border border-red-400 px-3 py-1 font-medium dark:border-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
@@ -111,6 +126,7 @@ export default function StudioPage() {
           onClick={generate}
           disabled={
             loading ||
+            credits.loadError ||
             description.trim().length < 20 ||
             !credits.canAfford(GENERATION_COST)
           }
@@ -210,7 +226,9 @@ export default function StudioPage() {
               key={`${selection.screenIndex}:${selection.elementIndex ?? "screen"}`}
               result={result}
               selection={selection}
-              balance={credits.balance}
+              // Force "unaffordable" while the balance can't be trusted
+              // (server unreachable) rather than acting on a stale number.
+              balance={credits.loadError ? null : credits.balance}
               onBalance={credits.setBalance}
               onApply={(next) => {
                 setResult(next);
