@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { trackServerEvent } from "@/lib/analytics/server";
 import { GENERATION_COST } from "@/lib/credits/costs";
 import { requireCredits } from "@/lib/credits/guard";
 import { charge } from "@/lib/credits/server";
@@ -45,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Server-side gate: authenticated + balance covers the cost, checked
   // BEFORE any tokens are spent. Bypassing the UI cannot bypass this.
-  const guard = await requireCredits(request, GENERATION_COST);
+  const guard = await requireCredits(request, GENERATION_COST, "generation");
   if (guard instanceof NextResponse) {
     return guard;
   }
@@ -99,6 +100,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 402 },
       );
     }
+
+    await trackServerEvent(guard.userId, "generation_completed", {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    });
 
     return NextResponse.json({
       result: validated.data,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { trackServerEvent } from "@/lib/analytics/server";
 import { requireUserId } from "@/lib/auth";
 import { isDbConfigured } from "@/lib/db";
 import { approveProposal } from "@/lib/edit/proposals";
@@ -42,6 +43,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const result = await approveProposal(userId, parsed.data.proposalId);
   if (result.ok) {
+    await trackServerEvent(userId, "edit_approved", { kind: result.kind });
     return NextResponse.json({ balance: result.balance });
   }
   switch (result.reason) {

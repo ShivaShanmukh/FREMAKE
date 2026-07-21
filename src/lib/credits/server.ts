@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { trackServerEvent } from "@/lib/analytics/server";
 import { getPool } from "@/lib/db";
 import { STARTING_BALANCE } from "./costs";
 
@@ -45,7 +46,7 @@ export async function ensureSignupGrant(userId: string): Promise<number> {
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [userId]);
-    await client.query(
+    const inserted = await client.query(
       `INSERT INTO credit_transactions (user_id, amount, reason)
        SELECT $1, $2, 'signup_grant'
        WHERE NOT EXISTS (SELECT 1 FROM credit_transactions WHERE user_id = $1)`,
@@ -53,6 +54,11 @@ export async function ensureSignupGrant(userId: string): Promise<number> {
     );
     const balance = await sumBalance(client, userId);
     await client.query("COMMIT");
+    // This is the true "first contact" moment — fire outside the
+    // transaction so a slow/failed analytics call never affects it.
+    if (inserted.rowCount === 1) {
+      await trackServerEvent(userId, "signup", { startingBalance: STARTING_BALANCE });
+    }
     return balance;
   } catch (error) {
     await client.query("ROLLBACK");

@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // but a user whose balance cannot cover the eventual approval may not
   // spend tokens at all ("diff before debit" still means no freeloading).
   // The charge row is written by /api/approve, never here.
-  const guard = await requireCredits(request, editCost(target.kind));
+  const guard = await requireCredits(request, editCost(target.kind), "edit");
   if (guard instanceof NextResponse) {
     return guard;
   }

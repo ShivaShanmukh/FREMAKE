@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
     "@clerk/nextjs": "^7.5.14",
+    "@sentry/nextjs": "^10.67.0",
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.10.0",
     "@supabase/supabase-js": "^2.110.1",
@@ -22,6 +23,7 @@
     "konva": "^10.3.0",
     "next": "16.2.10",
     "pg": "^8.22.0",
+    "posthog-js": "^1.405.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-konva": "^19.2.5",

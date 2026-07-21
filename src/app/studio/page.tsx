@@ -10,6 +10,7 @@ import { useCredits } from "@/lib/credits/useCredits";
 import { STARTER_ZIP_NAME, starterProject } from "@/lib/export/project";
 import { BuyCredits } from "@/components/BuyCredits";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
+import { trackEvent } from "@/lib/analytics/client";
 
 // Konva touches `window` — must not be server-rendered.
 const WireframeCanvas = dynamic(() => import("@/components/WireframeCanvas"), {
@@ -184,6 +185,7 @@ export default function StudioPage() {
                   // Deterministic codegen, no model call — free, no debit.
                   const { downloadZip } = await import("@/lib/export/download");
                   await downloadZip(starterProject(result.screens), STARTER_ZIP_NAME);
+                  trackEvent("export_downloaded", { screenCount: result.screens.length });
                 }}
                 data-testid="export-starter"
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700"

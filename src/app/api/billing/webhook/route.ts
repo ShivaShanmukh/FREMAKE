@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { trackServerEvent } from "@/lib/analytics/server";
 import { applyTopup } from "@/lib/billing/applyTopup";
 import { isDbConfigured } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -52,5 +53,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const outcome = await applyTopup(userId, credits, intent.id);
   logger.info(`[billing] payment ${intent.id}: ${outcome} (${credits} credits for ${userId})`);
+  if (outcome === "applied") {
+    await trackServerEvent(userId, "credit_topup", { credits, stripeRef: intent.id });
+  }
   return NextResponse.json({ received: true, outcome });
 }

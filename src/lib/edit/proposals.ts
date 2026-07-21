@@ -23,7 +23,7 @@ export async function createProposal(userId: string, kind: ProposalKind): Promis
 }
 
 export type ApproveResult =
-  | { ok: true; balance: number }
+  | { ok: true; balance: number; kind: ProposalKind }
   | { ok: false; reason: "not_found" | "already_used" | "expired" }
   | { ok: false; reason: "insufficient"; balance: number; cost: number };
 
@@ -80,7 +80,7 @@ export async function approveProposal(userId: string, proposalId: string): Promi
       [userId, -proposal.cost, proposal.kind === "element" ? "edit_element" : "edit_screen"],
     );
     await client.query("COMMIT");
-    return { ok: true, balance: balance - proposal.cost };
+    return { ok: true, balance: balance - proposal.cost, kind: proposal.kind };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { identifyUser } from "@/lib/analytics/client";
 
 export type Credits = {
   /** Server-computed balance; null until loaded or when signed out. */
@@ -31,10 +32,13 @@ export function useCredits(): Credits {
           setSignedOut(true);
           return;
         }
-        const data: { balance?: number } = await res.json();
+        const data: { balance?: number; userId?: string } = await res.json();
         if (typeof data.balance === "number") {
           setSignedOut(false);
           setBalanceState(data.balance);
+          if (data.userId) {
+            identifyUser(data.userId);
+          }
         }
       })
       .catch(() => {

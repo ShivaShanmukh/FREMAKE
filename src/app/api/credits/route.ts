@@ -17,5 +17,5 @@ export async function GET(request: Request): Promise<NextResponse> {
       { status: 503 },
     );
   }
-  return NextResponse.json({ balance: await ensureSignupGrant(userId) });
+  return NextResponse.json({ balance: await ensureSignupGrant(userId), userId });
 }

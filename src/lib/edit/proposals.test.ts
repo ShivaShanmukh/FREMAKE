@@ -34,7 +34,7 @@ describe.skipIf(!hasDb)("edit proposals (Postgres)", () => {
     const proposalId = await createProposal(user, "screen");
 
     const result = await approveProposal(user, proposalId);
-    expect(result).toEqual({ ok: true, balance: 2000 - 5 });
+    expect(result).toEqual({ ok: true, balance: 2000 - 5, kind: "screen" });
     expect(await getBalance(user)).toBe(1995);
 
     const { rows } = await getPool().query(
@@ -50,8 +50,8 @@ describe.skipIf(!hasDb)("edit proposals (Postgres)", () => {
     const elementProposal = await createProposal(user, "element");
     const screenProposal = await createProposal(user, "screen");
 
-    expect(await approveProposal(user, elementProposal)).toEqual({ ok: true, balance: 1999 });
-    expect(await approveProposal(user, screenProposal)).toEqual({ ok: true, balance: 1994 });
+    expect(await approveProposal(user, elementProposal)).toEqual({ ok: true, balance: 1999, kind: "element" });
+    expect(await approveProposal(user, screenProposal)).toEqual({ ok: true, balance: 1994, kind: "screen" });
   });
 
   it("a proposal can only be approved once", async () => {
@@ -59,7 +59,7 @@ describe.skipIf(!hasDb)("edit proposals (Postgres)", () => {
     await ensureSignupGrant(user);
     const proposalId = await createProposal(user, "element");
 
-    expect(await approveProposal(user, proposalId)).toEqual({ ok: true, balance: 1999 });
+    expect(await approveProposal(user, proposalId)).toEqual({ ok: true, balance: 1999, kind: "element" });
     expect(await approveProposal(user, proposalId)).toEqual({ ok: false, reason: "already_used" });
     expect(await getBalance(user)).toBe(1999); // not double-charged
   });
@@ -84,7 +84,7 @@ describe.skipIf(!hasDb)("edit proposals (Postgres)", () => {
       "INSERT INTO credit_transactions (user_id, amount, reason) VALUES ($1, 10, 'refund')",
       [user],
     );
-    expect(await approveProposal(user, proposalId)).toEqual({ ok: true, balance: 7 });
+    expect(await approveProposal(user, proposalId)).toEqual({ ok: true, balance: 7, kind: "screen" });
   });
 
   it("rejects an unknown proposal id and a proposal belonging to another user", async () => {
