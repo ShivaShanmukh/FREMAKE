@@ -79,7 +79,7 @@ export default function StudioPage() {
           >
             Credits: {credits.balance ?? "—"}
           </span>
-          <BuyCredits disabled={credits.signedOut} onRefresh={credits.refresh} />
+          <BuyCredits disabled={credits.signedOut} balance={credits.balance} onRefresh={credits.refresh} />
         </div>
       </div>
 
